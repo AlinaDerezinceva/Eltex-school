@@ -3,7 +3,7 @@
 
 #include "structures.h"
 
-void readLine(char* s, int n);
+void read(char* s, int n);
 void clearInput(void);
 int printMainMenu(void);
 Contact printAddMenu(void);

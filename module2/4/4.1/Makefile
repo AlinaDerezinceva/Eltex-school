@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -std=c99 -Wall -Wextra -D_POSIX_C_SOURCE=200809L
+CFLAGS = -std=c99 -Wall -Wextra
 
 TARGET = contacts
 SRCS = main.c actions.c interface.c
@@ -10,6 +10,6 @@ $(TARGET): $(SRCS)
 	$(CC) $(CFLAGS) -o $@ $^
 
 clean:
-	rm -f $(TARGET) contacts.dat
+	rm -f $(TARGET)
 
 .PHONY: all clean

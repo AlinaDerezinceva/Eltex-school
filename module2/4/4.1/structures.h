@@ -9,10 +9,17 @@ typedef struct {
     char links[100];
 } Contact;
 
+typedef struct Node {
+    Contact data;
+    struct Node* prev;
+    struct Node* next;
+} Node;
+
 typedef struct {
-    Contact *contacts;
+    Node* head;
+    Node* tail;
     int size;
-} ContactsArray;
+} ContactList;
 
 typedef enum { 
     FIELD_JOB, 

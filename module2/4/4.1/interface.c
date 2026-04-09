@@ -3,9 +3,8 @@
 #include <string.h>
 #include <stdlib.h>
 
-void readLine(char* s, int n) {
-    if (fgets(s, n, stdin)) 
-    {
+void read(char* s, int n) {
+    if (fgets(s, n, stdin)) {
         s[strcspn(s, "\n")] = 0;
     }
 }
@@ -27,20 +26,20 @@ Contact printAddMenu(void) {
     Contact c = {0};
     
     printf("Добавление\nФИО: ");
-    readLine(c.fio, sizeof(c.fio));
+    read(c.fio, sizeof(c.fio));
     if (!*c.fio) { 
         printf("Ошибка: ФИО обязательно!\n"); 
         return c; 
     }
     
     printf("Работа: "); 
-    readLine(c.job, sizeof(c.job));
+    read(c.job, sizeof(c.job));
     printf("Телефон: "); 
-    readLine(c.phone, sizeof(c.phone));
+    read(c.phone, sizeof(c.phone));
     printf("Email: "); 
-    readLine(c.email, sizeof(c.email));
+    read(c.email, sizeof(c.email));
     printf("Ссылки: "); 
-    readLine(c.links, sizeof(c.links));
+    read(c.links, sizeof(c.links));
     
     printf("Добавлен!\n");
     return c;

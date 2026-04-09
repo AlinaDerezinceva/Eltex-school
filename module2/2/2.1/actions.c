@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
 
 void update(Contact* c, int n, ...) {
     va_list args; 
@@ -14,149 +17,151 @@ void update(Contact* c, int n, ...) {
         if (!v || !*v) continue;
         switch (f) {
             case FIELD_JOB:
-                strcpy(c->job, v);
+                strncpy(c->job, v, sizeof(c->job) - 1);
+                c->job[sizeof(c->job) - 1] = '\0';
                 break;
             case FIELD_PHONE:
-                strcpy(c->phone, v);
+                strncpy(c->phone, v, sizeof(c->phone) - 1);
+                c->phone[sizeof(c->phone) - 1] = '\0';
                 break;
             case FIELD_EMAIL:
-                strcpy(c->email, v);
+                strncpy(c->email, v, sizeof(c->email) - 1);
+                c->email[sizeof(c->email) - 1] = '\0';
                 break;
             case FIELD_LINKS:
-                strcpy(c->links, v);
+                strncpy(c->links, v, sizeof(c->links) - 1);
+                c->links[sizeof(c->links) - 1] = '\0';
                 break;
         }
     }
     va_end(args);
 }
 
-static Node* createNode(Contact contact) {
-    Node* node = malloc(sizeof(Node));
-    if (!node) return NULL;
-    
-    node->data = contact;
-    node->prev = NULL;
-    node->next = NULL;
-    return node;
-}
-
-static int compareFio(const char* a, const char* b) {
-    return strcmp(a, b);
-}
-
-bool add(ContactList* list, Contact contact) {
-    if (!list || !*contact.fio) return false;
-    
-    Node* newNode = createNode(contact);
-    if (!newNode) return false;
-    
-    if (!list->head) {
-        list->head = newNode;
-        list->tail = newNode;
-        list->size = 1;
-        return true;
+bool add(ContactsArray* arr, Contact contact) {
+    if (arr == NULL || contact.fio[0] == '\0') {
+        return false;
     }
     
-    if (compareFio(contact.fio, list->head->data.fio) <= 0) {
-        newNode->next = list->head;
-        list->head->prev = newNode;
-        list->head = newNode;
-        list->size++;
-        return true;
-    }
+    Contact* temp = realloc(arr->contacts, (arr->size + 1) * sizeof(Contact));
+    if (!temp) {
+        return false;
+    } 
     
-    if (compareFio(contact.fio, list->tail->data.fio) >= 0) {
-        newNode->prev = list->tail;
-        list->tail->next = newNode;
-        list->tail = newNode;
-        list->size++;
-        return true;
-    }
-    
-    Node* current = list->head;
-    while (current && compareFio(contact.fio, current->data.fio) > 0) {
-        current = current->next;
-    }
-    
-    newNode->next = current;
-    newNode->prev = current->prev;
-    current->prev->next = newNode;
-    current->prev = newNode;
-    list->size++;
-    
+    arr->contacts = temp;
+    arr->contacts[arr->size++] = contact;
     return true;
 }
 
-bool del(ContactList* list, const char* fio) {
-    if (!list || !list->head) return false;
+bool del(ContactsArray* arr, const char* fio) {  
+    Contact* contact_it = findByName(arr->contacts, arr->size, fio);
     
-    Node* current = list->head;
-    
-    while (current) {
-        if (strstr(current->data.fio, fio) != NULL) {
-            break;
-        }
-        current = current->next;
+    if (contact_it == NULL) {
+        return false;
     }
     
-    if (!current) return false; 
+    int idx = contact_it - arr->contacts;
     
-    if (current->prev) {
-        current->prev->next = current->next;
+    for (int i = idx; i < arr->size - 1; i++) {
+        arr->contacts[i] = arr->contacts[i + 1];
+    }
+    
+    if (arr->size > 1) {
+        Contact* temp = realloc(arr->contacts, (arr->size - 1) * sizeof(Contact));
+        if (temp) arr->contacts = temp;
     } else {
-        list->head = current->next;  
+        free(arr->contacts);
+        arr->contacts = NULL;
     }
     
-    if (current->next) {
-        current->next->prev = current->prev;
-    } else {
-        list->tail = current->prev;  
-    }
-    
-    free(current);
-    list->size--;
-    
+    arr->size--;
     return true;
 }
 
-Contact* findByName(ContactList* list, const char* fio) {
-    if (!list || !list->head) return NULL;
+Contact* findByName(Contact* contacts, int size, const char* fio) {
+    if (!contacts) return NULL;
     
-    Node* current = list->head;
-    while (current) {
-        if (strstr(current->data.fio, fio) != NULL) {
-            return &current->data;
+    for (int i = 0; i < size; i++) {
+        if (strstr(contacts[i].fio, fio) != NULL) {
+            return &contacts[i];
         }
-        current = current->next;
     }
     return NULL;
 }
 
-void show(ContactList* list) {
-    if (!list || !list->head) { 
+void show(ContactsArray* arr) {
+    if (!arr || !arr->size) { 
         printf("Список пуст\n"); 
         return; 
     }
-    printf("Контакты (упорядочено по ФИО)\n");
-    Node* current = list->head;
-    while (current) {
-        printOne(&current->data);
-        current = current->next;
+    printf("Контакты:\n");
+    for (int i = 0; i < arr->size; i++) {
+        printOne(&arr->contacts[i]);
+        printf("\n");
     }
-    printf("\n");
 }
 
-void freeList(ContactList* list) {
-    if (!list) return;
+// Сохранение в файл
+bool saveContacts(const ContactsArray* arr, const char* filename) {
+    if (!arr || !filename) return false;
     
-    Node* current = list->head;
-    while (current) {
-        Node* next = current->next;
-        free(current);
-        current = next;
+    int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) return false;
+    
+    if (write(fd, &arr->size, sizeof(int)) != sizeof(int)) {
+        close(fd);
+        return false;
     }
     
-    list->head = NULL;
-    list->tail = NULL;
-    list->size = 0;
+    if (arr->size > 0) {
+        ssize_t written = write(fd, arr->contacts, arr->size * sizeof(Contact));
+        if (written != (ssize_t)(arr->size * sizeof(Contact))) {
+            close(fd);
+            return false;
+        }
+    }
+    
+    close(fd);
+    return true;
+}
+
+// Загрузка из файла
+bool loadContacts(ContactsArray* arr, const char* filename) {
+    if (!arr || !filename) return false;
+    
+    int fd = open(filename, O_RDONLY);
+    if (fd < 0) {
+        arr->contacts = NULL;
+        arr->size = 0;
+        return true;
+    }
+    
+    int size;
+    if (read(fd, &size, sizeof(int)) != sizeof(int)) {
+        close(fd);
+        return false;
+    }
+    
+    arr->size = size;
+    
+    if (size > 0) {
+        arr->contacts = malloc(size * sizeof(Contact));
+        if (!arr->contacts) {
+            close(fd);
+            return false;
+        }
+        
+        ssize_t bytesRead = read(fd, arr->contacts, size * sizeof(Contact));
+        if (bytesRead != (ssize_t)(size * sizeof(Contact))) {
+            free(arr->contacts);
+            arr->contacts = NULL;
+            arr->size = 0;
+            close(fd);
+            return false;
+        }
+    } else {
+        arr->contacts = NULL;
+    }
+        
+    close(fd);
+    return true;
 }
